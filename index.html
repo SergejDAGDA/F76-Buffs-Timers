@@ -147,35 +147,39 @@
     button.start:disabled{opacity:.55;cursor:not-allowed}
     button.start.expired{background:var(--done);border-color:#9b2d2d}
 
-    /* Improved timer sizing */
+    /* Improved timer sizing - фиксированные размеры для iOS */
     .timer{
       font-weight:900;letter-spacing:1px;line-height:1;min-width:0;text-align:right;
       font-family:"SevenSegment","Digital-7","DS-Digital","Orbitron",monospace;
       color:var(--active);
-      /* Responsive font size instead of fixed */
+      /* Фиксированный размер с fallback для старых браузеров */
+      font-size:var(--iconSize);
       font-size:clamp(32px, 8vw, var(--iconSize));
       max-width:100%; /* Prevent timer from overflowing */
       overflow:hidden; /* Hide overflow if it occurs */
+      /* iOS Safari fix */
+      -webkit-text-size-adjust:100%;
+      text-size-adjust:100%;
     }
     .timer.prewarn{color:var(--warn)}
 
-    /* Additional responsive adjustments for timer */
+    /* Additional responsive adjustments for timer - фиксированные размеры для лучшей совместимости */
     @media (max-width: 760px){
       .timer{
-        font-size:clamp(24px, 6vw, 56px); /* Уменьшен размер для узких карточек */
+        font-size:48px; /* Фиксированный размер вместо clamp для iOS */
       }
     }
     @media (max-width: 520px){
       .timer{
-        font-size:clamp(20px, 5vw, 48px); /* Еще меньше для сохранения пропорций */
+        font-size:40px; /* Фиксированный размер */
       }
       .row{
-        column-gap:8px; /* Reduce gap on small screens */
+        column-gap:8px;
       }
     }
     @media (max-width: 400px){
       .timer{
-        font-size:clamp(18px, 4.5vw, 42px); /* Подходящий размер для узких карточек */
+        font-size:36px; /* Фиксированный размер */
       }
       .controls{
         gap:8px;
@@ -183,7 +187,7 @@
     }
     @media (max-width: 320px){
       .timer{
-        font-size:clamp(16px, 4vw, 36px); /* Минимальный размер для читаемости */
+        font-size:32px; /* Минимальный фиксированный размер */
       }
       .row{
         column-gap:6px;
@@ -373,7 +377,7 @@
       { when:{diet:"herbivore"}, value:6 }
     ]}),
 
-    vINT({ id:"int_brain_fungus", title:"Brain fungus soup", minutes:30, icon:"brain_fungus_soup.webp", base:2, rules:[
+    vINT({ id:"int_brain_fungus", title:"Brain fungus soup", minutes:30, icon:"Brain_fungus_soup.webp", base:2, rules:[
       { when:{diet:"herbivore", sin:true}, value:6.75 },
       { when:{diet:"herbivore"}, value:4 }
     ]}),
