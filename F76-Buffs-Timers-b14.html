@@ -1,0 +1,701 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Fallout 76 Buff Timers</title>
+  <style>
+    :root{
+      --bg:#0e0f12; --card:#121419; --text:#eceff4; --muted:#8a9099;
+      --active:#24c26a; --warn:#ff6961; --done:#d84a4a; --idle:#323843; --btn:#1a1f27; --btnHover:#272d35;
+      --iconSize:76px; --accent:#f0c838;
+    }
+    html,body{height:100%}
+    body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji",sans-serif}
+
+    /* Seven Segment font for timer digits */
+    @font-face{
+      font-family:"SevenSegment";
+      src:url("Assets/SevenSegment.woff2") format("woff2"),
+          url("Assets/SevenSegment.ttf") format("truetype");
+      font-display:swap;
+    }
+
+    /* Header */
+    header.top{
+      max-width:1200px;margin:20px auto 6px;padding:0 16px;
+      display:grid;grid-template-columns:1fr minmax(280px,420px);
+      grid-template-areas:"title stats" "desc stats";
+      column-gap:16px;row-gap:6px;align-items:center
+    }
+    .titlebox{grid-area:title}
+    h1{font-size:28px;margin:0}
+    .desc{grid-area:desc;color:var(--muted);font-size:13px;line-height:1.35;max-width:620px}
+    .stats{
+      grid-area:stats;display:flex;align-items:center;justify-content:flex-end;
+      font-weight:900;font-size:42px;color:var(--accent);
+      text-shadow:0 0 10px rgba(240,200,56,.15)
+    }
+    @media (max-width: 860px){
+      header.top{grid-template-columns:1fr;grid-template-areas:"title" "stats" "desc"}
+      .stats{justify-content:flex-start;margin-top:6px}
+    }
+
+    /* Options */
+    details.options-panel{max-width:1200px;margin:8px auto;padding:0 16px}
+    details.options-panel>summary{
+      list-style:none;display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;
+      background:#151922;border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:10px 12px;font-weight:800
+    }
+    details.options-panel>summary::marker{display:none}
+    details.options-panel[open]>summary{border-bottom-left-radius:0;border-bottom-right-radius:0}
+    .options{
+      display:flex;flex-wrap:wrap;gap:10px;background:#151922;border:1px solid rgba(255,255,255,.06);
+      border-top:0;border-bottom-left-radius:12px;border-bottom-right-radius:12px;padding:10px
+    }
+    .opt{
+      display:grid;grid-template-columns:56px 1fr;column-gap:10px;row-gap:4px;align-items:center;
+      background:#151922;border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:8px 10px;
+      min-width:0; /* Fix flex item overflow */
+    }
+    .opt img{width:48px;height:48px;object-fit:contain;border-radius:8px;border:1px solid #2a2f36;background:#0b0c0f;grid-row:1/3}
+    .opt .name{font-weight:800;min-width:0}
+    .seg{display:flex;gap:6px;flex-wrap:wrap}
+    .seg button{appearance:none;border:1px solid #2a2f36;background:var(--btn);color:var(--text);padding:6px 10px;border-radius:8px;cursor:pointer;font-weight:700}
+    .seg button.active{background:#22303a;border-color:#34515e}
+
+    /* Cards grid */
+    .grid{
+      max-width:1200px;
+      margin:12px auto 120px;
+      padding:0 16px;
+      display:grid;gap:12px;
+      grid-template-columns:repeat(auto-fit,minmax(240px,1fr))
+    }
+    @media (max-width: 900px){
+      .grid{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+    }
+    @media (max-width: 760px){
+      .grid{grid-template-columns:1fr;justify-items:center}
+      .card{width:100%;max-width:360px} /* Уменьшена максимальная ширина для лучших пропорций */
+      button.start{min-width:88px;font-size:16px;padding:16px 12px}
+    }
+    @media (max-width: 520px){
+      .card{max-width:320px} /* Еще более узкие карточки на маленьких экранах */
+      button.start{min-width:76px;font-size:14px;padding:14px 10px}
+    }
+    @media (max-width: 400px){
+      .card{max-width:280px} /* Сохраняем пропорции даже на очень маленьких экранах */
+      button.start{min-width:68px;font-size:13px;padding:12px 8px}
+    }
+    @media (max-width: 320px){
+      .card{max-width:260px} /* Минимальная разумная ширина */
+      button.start{min-width:60px;font-size:12px;padding:10px 6px}
+    }
+
+    .card{
+      position:relative;background:var(--card);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:10px;
+      display:flex;flex-direction:column;user-select:none;transition:border-color .15s ease, box-shadow .15s ease;
+      min-width:0; /* Prevent flex item overflow */
+      overflow:hidden; /* Prevent content overflow */
+    }
+    .card.state-idle{border-color:var(--idle)}
+    .card.state-running{border-color:var(--active);box-shadow:0 0 0 2px rgba(36,194,106,.15) inset}
+    .card.state-done{border-color:var(--done);box-shadow:0 0 0 2px rgba(216,74,74,.15) inset}
+    .card[draggable="true"]{cursor:grab}
+    .card.dragging{opacity:.7;cursor:grabbing}
+
+    .close{position:absolute;right:8px;top:8px;width:28px;height:28px;border:1px solid #2a2f36;background:#1a1f27;color:var(--text);border-radius:8px;cursor:pointer;font-weight:900;line-height:26px;text-align:center}
+    .close:hover{background:#232a33}
+
+    .title{
+      display:flex;align-items:center;gap:10px;font-size:18px;font-weight:800;letter-spacing:0.2px;text-align:left;
+      margin-bottom:8px;padding-right:48px;
+      min-width:0; /* Allow flex item to shrink */
+    }
+    .title .label{
+      flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+      /* Remove custom font-size changes to prevent layout shifts */
+    }
+    .title .lb{flex-shrink:0}
+
+    .row{
+      display:grid;grid-template-columns:auto 1fr;align-items:center;column-gap:12px;
+      min-width:0; /* Prevent grid overflow */
+      max-width:100%; /* Ensure row doesn't exceed card width */
+    }
+
+    .icon-wrap{position:relative;flex-shrink:0}
+    .icon{width:var(--iconSize);height:var(--iconSize);object-fit:contain;border-radius:10px;background:#0b0c0f;border:1px solid #2a2f36;padding:6px}
+    .icon-wrap.has-variants::before{content:"";position:absolute;left:-1px;top:-1px;border-top-left-radius:10px;width:24px;height:24px;background:linear-gradient(135deg,#f0c838 50%, transparent 50%);border-top:1px solid #6a5e1c;border-left:1px solid #6a5e1c}
+    .icon-wrap.has-variants{cursor:pointer}
+
+    /* Improved controls layout */
+    .controls{
+      display:flex;align-items:center;justify-content:flex-end;gap:12px;
+      min-width:0; /* Allow controls to shrink */
+      max-width:100%; /* Prevent overflow */
+    }
+    button.start{
+      appearance:none;border:1px solid #2a2f36;background:var(--btn);color:var(--text);
+      padding:18px 18px;border-radius:12px;font-weight:900;font-size:18px;cursor:pointer;
+      min-width:130px;text-transform:uppercase;letter-spacing:.5px;
+      flex-shrink:0; /* Prevent button from shrinking too much */
+      white-space:nowrap; /* Prevent text wrapping */
+    }
+    button.start:hover{background:var(--btnHover)}
+    button.start:disabled{opacity:.55;cursor:not-allowed}
+    button.start.expired{background:var(--done);border-color:#9b2d2d}
+
+    /* Improved timer sizing */
+    .timer{
+      font-weight:900;letter-spacing:1px;line-height:1;min-width:0;text-align:right;
+      font-family:"SevenSegment","Digital-7","DS-Digital","Orbitron",monospace;
+      color:var(--active);
+      /* Responsive font size instead of fixed */
+      font-size:clamp(32px, 8vw, var(--iconSize));
+      max-width:100%; /* Prevent timer from overflowing */
+      overflow:hidden; /* Hide overflow if it occurs */
+    }
+    .timer.prewarn{color:var(--warn)}
+
+    /* Additional responsive adjustments for timer */
+    @media (max-width: 760px){
+      .timer{
+        font-size:clamp(24px, 6vw, 56px); /* Уменьшен размер для узких карточек */
+      }
+    }
+    @media (max-width: 520px){
+      .timer{
+        font-size:clamp(20px, 5vw, 48px); /* Еще меньше для сохранения пропорций */
+      }
+      .row{
+        column-gap:8px; /* Reduce gap on small screens */
+      }
+    }
+    @media (max-width: 400px){
+      .timer{
+        font-size:clamp(18px, 4.5vw, 42px); /* Подходящий размер для узких карточек */
+      }
+      .controls{
+        gap:8px;
+      }
+    }
+    @media (max-width: 320px){
+      .timer{
+        font-size:clamp(16px, 4vw, 36px); /* Минимальный размер для читаемости */
+      }
+      .row{
+        column-gap:6px;
+      }
+      .controls{
+        gap:6px;
+      }
+    }
+
+    .effect{margin-top:8px;color:var(--muted);font-weight:800;word-break:break-word} /* Prevent overflow */
+
+    .lb{display:flex;gap:6px;margin-left:12px;flex-shrink:0}
+    .lb button{width:12px;height:12px;border-radius:50%;border:1px solid #555;background:#2b3037;cursor:pointer}
+    .lb button.active{background:var(--accent);border-color:#bfa22c}
+    .lb.disabled{opacity:.5;pointer-events:none}
+
+    .sr{position:absolute;left:-9999px}
+
+    /* Additional container queries for better responsive behavior */
+    @container (max-width: 300px) {
+      .timer {
+        font-size:18px !important;
+      }
+      button.start {
+        min-width:60px;
+        font-size:12px;
+        padding:10px 6px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <div class="titlebox"><h1>Fallout 76 Buff Timers</h1></div>
+    <div class="stats" id="statsTotal">+0% XP</div>
+    <div class="desc">Choose options, then start any number of timers in parallel. Minutes only. One minute before end the timer turns red. At 0 it swaps back to a red Start button. Click an icon with a folded corner to switch between variants.</div>
+  </header>
+
+  <details class="options-panel" open>
+    <summary>Options</summary>
+    <section class="options" id="options">
+      <div class="opt" id="opt-sin">
+        <img src="Assets/Strange_In_Numbers.webp" alt="Strange in Numbers">
+        <div class="name">Strange in Numbers</div>
+        <div class="seg">
+          <button data-val="false" class="active">Off</button>
+          <button data-val="true">On</button>
+        </div>
+      </div>
+
+      <div class="opt" id="opt-diet">
+        <img src="Assets/Herbivore-Carnivore.webp" alt="Mutation">
+        <div class="name">Mutation</div>
+        <div class="seg">
+          <button data-val="none" class="active">None</button>
+          <button data-val="herbivore">Herbivore</button>
+          <button data-val="carnivore">Carnivore</button>
+        </div>
+      </div>
+
+      <div class="opt" id="opt-chem">
+        <img src="Assets/Chem_Fiend.webp" alt="Chem Fiend">
+        <div class="name">Chem Fiend</div>
+        <div class="seg">
+          <button data-val="0" class="active">0</button>
+          <button data-val="1">1</button>
+          <button data-val="2">2</button>
+          <button data-val="3">3</button>
+        </div>
+      </div>
+
+      <div class="opt" id="opt-curator">
+        <img src="Assets/Curator.webp" alt="Curator">
+        <div class="name">Curator</div>
+        <div class="seg">
+          <button data-val="false" class="active">Off</button>
+          <button data-val="true">On</button>
+        </div>
+      </div>
+
+      <div class="opt" id="opt-cola">
+        <img src="Assets/Cola_Nut.webp" alt="Cola Nut">
+        <div class="name">Cola Nut</div>
+        <div class="seg">
+          <button data-val="0" class="active">0</button>
+          <button data-val="1">1</button>
+          <button data-val="2">2</button>
+        </div>
+      </div>
+    </section>
+  </details>
+
+  <main class="grid" id="grid"></main>
+
+  <template id="card-template">
+    <article class="card state-idle" draggable="true">
+      <button class="close" aria-label="Hide">×</button>
+      <div class="title"><span class="label"></span><div class="lb" style="display:none"></div></div>
+      <div class="row">
+        <div class="icon-wrap"><img class="icon" alt=""></div>
+        <div class="controls">
+          <button class="start">Start</button>
+          <div class="timer" style="display:none" aria-live="polite" title="">0</div>
+        </div>
+      </div>
+      <div class="effect">&nbsp;</div>
+    </article>
+  </template>
+
+  <script>
+  const ASSETS = "Assets/"
+
+  /* global options */
+  const OPTIONS = { sin:false, diet:"none", chemFiend:0, curator:false, colaNut:0 }
+  const CARD_NODES = []
+
+  /* helpers with per-variant tags */
+  function vXP({id,title,minutes,icon,base,rules,tag}){ return id? {id, variants:[{ title, minutes, icon, tag, effect:{ kind:"xp", base, rules } }]} : { title, minutes, icon, tag, effect:{ kind:"xp", base, rules } } }
+  function vINT({id,title,minutes,icon,base,rules,tag}){ return id? {id, variants:[{ title, minutes, icon, tag, effect:{ kind:"int", base, rules } }]} : { title, minutes, icon, tag, effect:{ kind:"int", base, rules } } }
+  function vINTEND({id,title,minutes,icon,base,rules,tag}){ return id? {id, variants:[{ title, minutes, icon, tag, effect:{ kind:"int_end", base, rules } }]} : { title, minutes, icon, tag, effect:{ kind:"int_end", base, rules } } }
+  function vChemINT({id,title,icon,baseVal,baseMin,map}){
+    return { id, variants:[{ title, minutes:baseMin, icon, tag:"chem", effect:{ kind:"int", base:baseVal, rules:[
+      { when:{chemFiend:3}, minutes:map[3] },
+      { when:{chemFiend:2}, minutes:map[2] },
+      { when:{chemFiend:1}, minutes:map[1] }
+    ] } }] }
+  }
+
+  /* buffs */
+  const BUFFS = [
+    { id:"xp_cobbler_cms", variants:[
+      vXP({ title:"Cranberry cobbler", tag:"cobbler", minutes:60, icon:"cranberry_cobbler.webp", base:5, rules:[
+        { when:{variant:"cobbler", diet:"herbivore", sin:true}, value:12.5 },
+        { when:{variant:"cobbler", diet:"herbivore"}, value:10 }
+      ]}),
+      vXP({ title:"Canned Meat Stew", tag:"cms", minutes:60, icon:"Canned_Meat_Stew.webp", base:5, rules:[
+        { when:{variant:"cms", diet:"carnivore", sin:true}, value:12.5 },
+        { when:{variant:"cms", diet:"carnivore"}, value:10 }
+      ]})
+    ]},
+
+    { id:"xp_relish_stew", variants:[
+      vXP({ title:"Cranberry Relish", tag:"relish", minutes:60, icon:"Cranberry_Relish.webp", base:10, rules:[
+        { when:{variant:"relish", diet:"herbivore", sin:true}, value:25 },
+        { when:{variant:"relish", diet:"herbivore"}, value:20 }
+      ]}),
+      vXP({ title:"Tasty Squirrel Stew", tag:"tss", minutes:60, icon:"Tasty Squirrel Stew.webp", base:10, rules:[
+        { when:{variant:"tss", diet:"carnivore", sin:true}, value:25 },
+        { when:{variant:"tss", diet:"carnivore"}, value:20 }
+      ]})
+    ]},
+
+    vXP({ id:"xp_cranberry_juice", title:"Cranberry juice", minutes:60, icon:"cranberry_juice.webp", base:2, rules:[
+      { when:{diet:"herbivore", sin:true}, value:4.5 },
+      { when:{diet:"herbivore"}, value:4 }
+    ]}),
+
+    vXP({ id:"xp_nuka_cranberry", title:"Nuka-Cola Cranberry", minutes:30, icon:"Nuka-Cola_Cranberry.webp", base:2, rules:[
+      { when:{colaNut:2}, value:6 },
+      { when:{colaNut:1}, value:4 }
+    ]}),
+
+    /* +INT Food and Drink */
+    vINT({ id:"int_broiled_brains", title:"Broiled Scorchbeast Brains", minutes:30, icon:"Broiled_Scorchbeast_Brains.webp", base:3, rules:[
+      { when:{diet:"carnivore", sin:true}, value:7.5 },
+      { when:{diet:"carnivore"}, value:6 }
+    ]}),
+
+    { id:"int_owl_aster", variants:[
+      vINT({ title:"Owlet nuggets", tag:"owlet", minutes:30, icon:"Owlet_nuggets.webp", base:1, rules:[
+        { when:{variant:"owlet", diet:"carnivore", sin:true}, value:2.25 },
+        { when:{variant:"owlet", diet:"carnivore"}, value:2 }
+      ]}),
+      vINT({ title:"Simple aster tea", tag:"aster", minutes:30, icon:"Simple_aster_tea.webp", base:1, rules:[
+        { when:{variant:"aster", diet:"herbivore", sin:true}, value:2.25 },
+        { when:{variant:"aster", diet:"herbivore"}, value:2 }
+      ]})
+    ]},
+
+    vINT({ id:"int_scorch_mix", title:"Scorchbeast mixed meat stew", minutes:60, icon:"Scorchbeast_mixed_meat_stew.webp", base:1, rules:[
+      { when:{diet:"carnivore", sin:true}, value:2.25 },
+      { when:{diet:"carnivore"}, value:2 }
+    ]}),
+
+    vINT({ id:"int_brain_bombs", title:"Brain Bombs", minutes:90, icon:"Brain_Bombs.webp", base:3, rules:[
+      { when:{diet:"herbivore", sin:true}, value:7.5 },
+      { when:{diet:"herbivore"}, value:6 }
+    ]}),
+
+    vINT({ id:"int_brain_fungus", title:"Brain fungus soup", minutes:30, icon:"brain_fungus_soup.webp", base:2, rules:[
+      { when:{diet:"herbivore", sin:true}, value:6.75 },
+      { when:{diet:"herbivore"}, value:4 }
+    ]}),
+
+    vINT({ id:"int_steeped_aster", title:"Steeped aster tea", minutes:60, icon:"Steeped_aster_tea.webp", base:2, rules:[
+      { when:{diet:"herbivore", sin:true}, value:4.5 },
+      { when:{diet:"herbivore"}, value:4 }
+    ]}),
+
+    /* Chems */
+    vChemINT({ id:"chem_berry_mentats", title:"Berry Mentats", icon:"Berry_Mentats.webp", baseVal:5, baseMin:5, map:{1:6.5,2:8,3:10} }),
+    vChemINT({ id:"chem_daddyo", title:"Daddy-O", icon:"Daddyo.webp", baseVal:3, baseMin:10, map:{1:13,2:16,3:20} }),
+    vChemINT({ id:"chem_mentats", title:"Mentats", icon:"Mentats.webp", baseVal:2, baseMin:5, map:{1:6.5,2:8,3:10} }),
+    vChemINT({ id:"chem_xcell", title:"X-cell", icon:"X-Cell.webp", baseVal:2, baseMin:2, map:{1:2.6,2:3.2,3:4} }),
+
+    /* Others */
+    { id:"bobbleheads", variants:[
+      vXP({ title:"Leader Bobblehead", tag:"lead", minutes:60, icon:"Leader_Bobblehead.webp", base:5, rules:[ { when:{curator:true}, minutes:120 } ] }),
+      vINT({ title:"Intelligence Bobblehead", tag:"intel", minutes:60, icon:"Intelligence_Bobblehead.webp", base:2, rules:[ { when:{curator:true}, minutes:120 } ] })
+    ]},
+
+    vXP({ id:"live_love_8", title:"Live & Love 8", minutes:30, icon:"Live_&_Love_8.webp", base:5, rules:[ { when:{curator:true}, minutes:60 } ] }),
+
+    /* Lunchbox with stacks 1..4 */
+    vXP({ id:"lunchbox", title:"Lunchbox", minutes:60, icon:"Lunchbox.webp", base:25, rules:[] }),
+
+    { id:"rested_kindred", variants:[
+      vXP({ title:"Well-Rested", tag:"rest", minutes:60, icon:"Well_Rested-Kindred_Spirit.webp", base:5, rules:[] }),
+      vXP({ title:"Kindred Spirit", tag:"kindred", minutes:180, icon:"Well_Rested-Kindred_Spirit.webp", base:5, rules:[] })
+    ]},
+
+    vXP({ id:"leo_petrov", title:"Leo Petrov", minutes:60, icon:"Leo_Petrov.webp", base:5, rules:[] }),
+    vINT({ id:"mech_derby", title:"Mechanical derby game", minutes:30, icon:"Mechanical_derby_game.webp", base:2, rules:[] }),
+
+    /* Sacred Mothman tome / Steven Scarberry */
+    { id:"mothman_or_scarberry", variants:[
+      vXP({ title:"Sacred Mothman tome", tag:"mothman", minutes:60, icon:"Sacred_Mothman_tome.webp", base:5, rules:[] }),
+      vXP({ title:"Steven Scarberry", tag:"scarberry", minutes:60, icon:"Steven_Scarberry.webp", base:5, rules:[] })
+    ]},
+
+    /* Dottie +1 INT and END for 60 min */
+    vINTEND({ id:"dottie", title:"Dottie", minutes:60, icon:"Dottie.webp", base:1, rules:[] })
+  ]
+
+  /* rule matching supports variant tag */
+  function matches(when, opt, variantTag){
+    if(when==null) return true
+    if("variant" in when && when.variant !== variantTag) return false
+    if("diet" in when && when.diet !== opt.diet) return false
+    if("sin" in when && when.sin !== opt.sin) return false
+    if("curator" in when && when.curator !== opt.curator) return false
+    if("chemFiend" in when){ if(when.chemFiend !== opt.chemFiend) return false }
+    if("colaNut" in when){ if(when.colaNut !== opt.colaNut) return false }
+    return true
+  }
+  function compute(v, variantTag){
+    const eff = v.effect; let value = eff.base; let minutes = v.minutes
+    for(const r of eff.rules||[]){ if(matches(r.when, OPTIONS, variantTag)){ if("value" in r) value = r.value; if("minutes" in r) minutes = r.minutes; break } }
+    return { value, minutes }
+  }
+  function fmtMinutes(total){
+    const h = Math.floor(total/60); const m = Math.round((total%60))
+    return h + ":" + String(m).padStart(2,"0")
+  }
+  function trim(n){ return (Math.round(n*100)/100).toString() }
+  function effectText(v, variantTag, mult=1){
+    const c = compute(v, variantTag)
+    if(v.effect.kind==="xp"){
+      const val = c.value * mult
+      return `+${trim(val)}% XP (${trim(c.minutes)} min)`
+    }
+    if(v.effect.kind==="int_end"){
+      return `+${trim(c.value)} INT & END (${trim(c.minutes)} min)`
+    }
+    return `+${trim(c.value)} INT (${trim(c.minutes)} min)`
+  }
+
+  /* stats */
+  const statsEl = document.getElementById("statsTotal")
+  function updateStats(){
+    let xp=0, intel=0
+    CARD_NODES.forEach(n=>{
+      const c = n.getActiveContribution && n.getActiveContribution()
+      if(c){ xp += c.xp; intel += c.int }
+    })
+    const total = xp + 3*intel
+    statsEl.textContent = `+${trim(total)}% XP`
+  }
+
+  /* Simplified title fitting - removed dynamic font sizing to prevent layout shifts */
+  function fitOneLine(el){
+    // Simply ensure text doesn't overflow - let CSS handle ellipsis
+    el.style.textOverflow = 'ellipsis';
+  }
+  function refitAllTitles(){ 
+    // Removed refitting logic that caused layout shifts
+    CARD_NODES.forEach(n=> n.refitTitle && n.refitTitle()) 
+  }
+  
+  // Debounce resize events to prevent excessive refitting
+  let resizeTimeout;
+  window.addEventListener("resize", () => {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(refitAllTitles, 150);
+  });
+
+  /* render */
+  const grid = document.getElementById("grid")
+
+  function makeCard(entry){
+    const tpl = document.getElementById("card-template")
+    const node = tpl.content.firstElementChild.cloneNode(true)
+
+    const label = node.querySelector(".label")
+    const lb = node.querySelector(".lb")
+    const iconWrap = node.querySelector(".icon-wrap")
+    const img = node.querySelector(".icon")
+    const btn = node.querySelector(".start")
+    const timerEl = node.querySelector(".timer")
+    const effectEl = node.querySelector(".effect")
+    const closeBtn = node.querySelector(".close")
+
+    const variants = entry.variants || []
+    let vi = 0
+
+    /* Lunchbox stacks */
+    let lunchCount = 1
+    function buildLunchBullets(){
+      if(entry.id !== "lunchbox") return
+      lb.style.display = ""
+      lb.innerHTML = ""
+      for(let i=1;i<=4;i++){
+        const b = document.createElement("button")
+        if(i===lunchCount) b.classList.add("active")
+        b.title = `${i} Lunchbox${i>1?"es":""}`
+        b.addEventListener("click", ()=>{
+          if(running) return
+          lunchCount = i
+          ;[...lb.children].forEach(x=>x.classList.remove("active"))
+          b.classList.add("active")
+          refreshStatic()
+        })
+        lb.appendChild(b)
+      }
+    }
+
+    function applyVariant(){
+      const v = variants[vi]
+      label.textContent = v.title
+      fitOneLine(label)
+      img.alt = v.title
+      img.src = ASSETS + (v.icon || "")
+      const mult = entry.id==="lunchbox" ? lunchCount : 1
+      timerEl.title = effectText(v, v.tag, mult)
+      effectEl.textContent = effectText(v, v.tag, mult)
+      setIdle(false)
+      if(entry.id==="lunchbox") buildLunchBullets()
+      if(variants.length>1) iconWrap.classList.add("has-variants")
+      updateStats()
+    }
+    node.refitTitle = ()=> fitOneLine(label)
+
+    /* visual state */
+    function setCardState(cls){
+      node.classList.remove("state-idle","state-running","state-done")
+      node.classList.add(cls)
+    }
+    function setIdle(expired){
+      running=false
+      stopInterval()
+      timerEl.style.display="none"
+      btn.style.display=""
+      btn.disabled=false
+      btn.classList.toggle("expired", !!expired)
+      timerEl.classList.remove("prewarn")
+      setCardState(expired ? "state-done" : "state-idle")
+      if(entry.id==="lunchbox") lb.classList.remove("disabled")
+    }
+
+    let minutesLeft = 0
+    let intervalId = null
+    let running = false
+
+    function stopInterval(){ if(intervalId){ clearInterval(intervalId); intervalId=null } }
+    function finish(){ setIdle(true); updateStats() }
+    function tick(){
+      if(minutesLeft<=0){ finish(); return }
+      minutesLeft -= 1
+      if(minutesLeft<=1) timerEl.classList.add("prewarn")
+      timerEl.textContent = fmtMinutes(minutesLeft)
+      if(minutesLeft<=0){ finish() }
+    }
+
+    btn.addEventListener("click", ()=>{
+      const v = variants[vi]
+      const c = compute(v, v.tag)
+      minutesLeft = Math.round(c.minutes)
+      timerEl.textContent = fmtMinutes(minutesLeft)
+      timerEl.classList.remove("prewarn")
+      timerEl.style.display=""
+      btn.style.display="none"
+      btn.disabled=true
+      setCardState("state-running")
+      running=true
+      if(entry.id==="lunchbox") lb.classList.add("disabled")
+      stopInterval()
+      intervalId = setInterval(tick, 60000)
+      let last = Date.now()
+      const sync = ()=>{
+        if(!running) return
+        const now = Date.now()
+        const diff = now - last
+        if(diff>70000){
+          const passed = Math.floor(diff/60000)
+          minutesLeft = Math.max(0, minutesLeft - passed)
+          if(minutesLeft<=1) timerEl.classList.add("prewarn")
+          timerEl.textContent = fmtMinutes(minutesLeft)
+          if(minutesLeft<=0){ finish(); return }
+        }
+        last = now
+        requestAnimationFrame(sync)
+      }
+      requestAnimationFrame(sync)
+      updateStats()
+    })
+
+    if(variants.length>1){
+      iconWrap.addEventListener("click", ()=>{
+        if(running) return
+        vi = (vi+1) % variants.length
+        applyVariant()
+      })
+    }
+
+    /* hide */
+    closeBtn.addEventListener("mousedown", e=> e.stopPropagation())
+    closeBtn.addEventListener("click", ()=>{
+      setIdle(false)
+      node.remove()
+      updateStats()
+    })
+
+    /* reactive text on options change */
+    function refreshStatic(){
+      const v = variants[vi]
+      const mult = entry.id==="lunchbox" ? lunchCount : 1
+      effectEl.textContent = effectText(v, v.tag, mult)
+      timerEl.title = effectText(v, v.tag, mult)
+      updateStats()
+    }
+    node.refreshStatic = refreshStatic
+
+    /* contribution for stats */
+    node.getActiveContribution = ()=>{
+      if(!running || minutesLeft<=0) return null
+      const v = variants[vi]
+      const c = compute(v, v.tag)
+      if(v.effect.kind==="xp") return { xp: c.value * (entry.id==="lunchbox" ? lunchCount : 1), int: 0 }
+      if(v.effect.kind==="int_end") return { xp: 0, int: c.value }
+      return { xp: 0, int: c.value }
+    }
+
+    applyVariant()
+    return node
+  }
+
+  /* create cards */
+  BUFFS.forEach(entry=>{
+    const n = makeCard(entry)
+    CARD_NODES.push(n)
+    grid.appendChild(n)
+  })
+
+  /* drag order */
+  function getDragAfterElement(container, y){
+    const els = [...container.querySelectorAll(".card:not(.dragging)")]
+    return els.reduce((closest, child)=>{
+      const box = child.getBoundingClientRect()
+      const offset = y - box.top - box.height/2
+      return (offset < 0 && offset > closest.offset) ? {offset, element: child} : closest
+    }, {offset: Number.NEGATIVE_INFINITY}).element
+  }
+  grid.addEventListener("dragstart", e=>{
+    const card = e.target.closest(".card")
+    if(card) card.classList.add("dragging")
+  })
+  grid.addEventListener("dragend", e=>{
+    const card = e.target.closest(".card")
+    if(card) card.classList.remove("dragging")
+  })
+  grid.addEventListener("dragover", e=>{
+    e.preventDefault()
+    const dragging = document.querySelector(".card.dragging")
+    if(!dragging) return
+    const after = getDragAfterElement(grid, e.clientY)
+    if(after==null) grid.appendChild(dragging)
+    else grid.insertBefore(dragging, after)
+  })
+
+  /* bind options */
+  function bindSegmented(rootId, key, coerce){
+    const root = document.getElementById(rootId)
+    const btns = root.querySelectorAll(".seg button")
+    btns.forEach(btn=>btn.addEventListener("click", ()=>{
+      btns.forEach(b=>b.classList.remove("active"))
+      btn.classList.add("active")
+      let val = btn.dataset.val
+      if(coerce==="bool") val = (val==="true")
+      if(coerce==="int") val = parseInt(val,10)
+      OPTIONS[key] = val
+      CARD_NODES.forEach(n=> n.refreshStatic && n.refreshStatic())
+      updateStats()
+    }))
+  }
+  bindSegmented("opt-sin","sin","bool")
+  bindSegmented("opt-diet","diet")
+  bindSegmented("opt-chem","chemFiend","int")
+  bindSegmented("opt-curator","curator","bool")
+  bindSegmented("opt-cola","colaNut","int")
+
+  updateStats()
+  refitAllTitles()
+  </script>
+</body>
+</html>
