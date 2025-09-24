@@ -163,15 +163,15 @@
     }
     .timer.prewarn{color:var(--warn)}
 
-    /* Additional responsive adjustments for timer - фиксированные размеры для лучшей совместимости */
+    /* Additional responsive adjustments for timer - увеличенные размеры для мобильных */
     @media (max-width: 760px){
       .timer{
-        font-size:48px; /* Фиксированный размер вместо clamp для iOS */
+        font-size:60px; /* Увеличено с 48px до 60px */
       }
     }
     @media (max-width: 520px){
       .timer{
-        font-size:40px; /* Фиксированный размер */
+        font-size:52px; /* Увеличено с 40px до 52px */
       }
       .row{
         column-gap:8px;
@@ -179,7 +179,7 @@
     }
     @media (max-width: 400px){
       .timer{
-        font-size:36px; /* Фиксированный размер */
+        font-size:48px; /* Увеличено с 36px до 48px */
       }
       .controls{
         gap:8px;
@@ -187,7 +187,7 @@
     }
     @media (max-width: 320px){
       .timer{
-        font-size:32px; /* Минимальный фиксированный размер */
+        font-size:44px; /* Увеличено с 32px до 44px */
       }
       .row{
         column-gap:6px;
